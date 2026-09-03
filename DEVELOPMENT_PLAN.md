@@ -1,9 +1,10 @@
 # Development plan
 
 The goal is an audit-ready, dependency-free Rust ray tracer. The required work is
-split by module ownership so both developers can work without editing the same
-files. The only shared checkpoint is a small core-contract commit before parallel
-development begins.
+intentionally split about 45/55: Dev A builds the reusable foundation plus the
+common CLI and a visual camera preview; Dev B owns the larger geometry, real
+rendering, and audit-delivery part. Module ownership keeps both developers from
+editing the same files.
 
 ## Shared contract checkpoint
 
@@ -13,33 +14,40 @@ Dev A establishes these types before parallel work starts:
 - `Material`
 - `HitRecord` and the `Hittable` trait
 
-Once this commit is available, the signatures stay stable until the two branches
-are merged. Dev A can test the renderer with a tiny test-only `Hittable`; Dev B can
-implement every object against the trait. Neither branch needs unfinished code
-from the other to compile or run its unit tests.
+Once this commit is available, the signatures stay stable. Dev B can implement
+every object against the trait while Dev A finishes the remaining foundation.
+Neither branch needs unfinished object or renderer code to compile its unit
+tests.
 
-## Dev A — core renderer (`dev-a/core-renderer`)
+## Dev A — foundation, CLI, and preview, about 45% (`dev-a/core-renderer`)
 
-Owned files: shared contracts, camera, canvas/PPM, scene, lighting, renderer,
-command-line entry point, and final `README.md`.
+Owned files: shared contracts, camera, canvas/PPM, scene, point-light shading,
+and common CLI option parsing.
 
 1. Establish the shared math, ray, material, and hit contracts.
 2. Implement a movable look-at camera with configurable width and height.
 3. Implement an in-memory canvas and ASCII P3 PPM output to standard output.
 4. Implement a scene that finds the closest hit.
-5. Add point-light brightness, Lambert diffuse lighting, ambient light, and hard
-   shadows using secondary shadow rays.
-6. Add a small command-line interface for selecting a scene and resolution.
-7. Document object creation, brightness, camera position/angle, render commands,
-   and the four required audit images.
+5. Add point-light brightness, Lambert diffuse lighting, and ambient light. The
+   method accepts a shadow state, but Dev B owns detecting that state with a
+   secondary ray.
+6. Add dependency-free CLI options for scene name, width, height, camera position,
+   and look-at target.
+7. Replace the fixed color gradient with a visual preview colored from camera-ray
+   directions. This proves that resolution and camera options affect an image,
+   without implementing any of Dev B's objects or renderer.
 
 Tests cover vector/ray math, camera rays, PPM structure and clamping, closest-hit
-selection, brightness, and shadow visibility. Until Dev B's work is merged, scene
-and renderer tests use a private fake object.
+selection, brightness, shaded-light behavior, and CLI validation. Scene tests use
+a private fake object, so Dev A never needs Dev B's unfinished shapes.
 
-## Dev B — object geometry (`dev-b/geometry`)
+Dev A's `main.rs` writes the camera-ray preview. Dev B later replaces only the
+preview wiring with the real renderer; the option parser stays unchanged.
 
-Owned files: `src/shapes/` and geometry-focused tests.
+## Dev B — geometry, renderer, and delivery, about 55% (`dev-b/ray-tracer`)
+
+Owned files: `src/shapes/`, renderer, scene presets, final `main.rs` wiring,
+integration tests, `README.md`, and required images.
 
 1. Implement a translated sphere using a quadratic ray intersection.
 2. Implement an infinite flat plane from a point and normal.
@@ -48,15 +56,27 @@ Owned files: `src/shapes/` and geometry-focused tests.
    end caps.
 5. Test misses, outside hits, inside hits, nearest valid distances, normals, and
    translated positions for every object.
+6. Implement the render loop that sends one camera ray per pixel and shades the
+   closest hit.
+7. Detect hard shadows with a ray from the hit point toward the light, limited to
+   the light's distance.
+8. Create the four required scene presets, including the lower-brightness scene
+   and the second camera perspective.
+9. Connect the final renderer to Dev A's CLI options, defaulting renders to
+   800x600 while allowing smaller test images.
+10. Write the public README with examples for every object, brightness, camera
+    movement, and render commands.
+11. Render, visually inspect, and commit the four required 800x600 PPM files.
 
 All constructors receive a `Material`, and all intersections return the shared
-`HitRecord`. Dev B does not edit renderer or CLI files.
+`HitRecord`. Dev B can start with shapes immediately. CLI parsing can also be
+used unchanged while Dev B builds and tests scene presets.
 
 ## Integration and audit pass
 
-After both branches pass independently:
+Dev B owns the final integration after both branches pass independently:
 
-1. Merge geometry into the renderer branch and add named scene presets.
+1. Merge Dev A's foundation once, then wire the renderer to the named presets.
 2. Render and commit four 800x600 P3 files:
    - sphere only;
    - plane and cube at lower light brightness;

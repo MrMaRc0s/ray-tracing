@@ -2,6 +2,7 @@
 
 pub mod camera;
 pub mod canvas;
+pub mod cli;
 pub mod geometry;
 pub mod light;
 pub mod material;
@@ -10,6 +11,7 @@ pub mod scene;
 
 pub use camera::Camera;
 pub use canvas::Canvas;
+pub use cli::{CliCommand, RenderOptions};
 pub use geometry::{HitRecord, Hittable};
 pub use light::PointLight;
 pub use material::Material;

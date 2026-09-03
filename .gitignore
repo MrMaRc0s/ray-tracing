@@ -1,3 +1,5 @@
 /target
 /output.ppm
+/preview.ppm
+/moved-preview.ppm
 /renders/dev/

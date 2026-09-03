@@ -7,6 +7,7 @@ pub mod geometry;
 pub mod light;
 pub mod material;
 pub mod math;
+pub mod preview;
 pub mod scene;
 
 pub use camera::Camera;
@@ -16,4 +17,5 @@ pub use geometry::{HitRecord, Hittable};
 pub use light::PointLight;
 pub use material::Material;
 pub use math::{Color, Point3, Ray, Vec3};
+pub use preview::render_preview;
 pub use scene::Scene;

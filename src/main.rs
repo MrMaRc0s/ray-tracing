@@ -1,21 +1,31 @@
-use std::io::{self, BufWriter};
+use std::{
+    io::{self, BufWriter},
+    process,
+};
 
-use rt::{Canvas, Color};
+use rt::{render_preview, CliCommand};
 
-fn main() -> io::Result<()> {
-    const WIDTH: usize = 256;
-    const HEIGHT: usize = 192;
+fn main() {
+    if let Err(error) = run() {
+        eprintln!("error: {error}");
+        eprintln!("try 'rt --help' for usage");
+        process::exit(2);
+    }
+}
 
-    let mut canvas = Canvas::new(WIDTH, HEIGHT);
-    for y in 0..HEIGHT {
-        for x in 0..WIDTH {
-            let red = x as f64 / (WIDTH - 1) as f64;
-            let green = y as f64 / (HEIGHT - 1) as f64;
-            canvas.set_pixel(x, y, Color::new(red, green, 0.25));
+fn run() -> Result<(), String> {
+    match CliCommand::from_env()? {
+        CliCommand::Help => {
+            print!("{}", rt::cli::HELP);
+            Ok(())
+        }
+        CliCommand::Render(options) => {
+            let canvas = render_preview(&options)?;
+            let stdout = io::stdout();
+            let mut output = BufWriter::new(stdout.lock());
+            canvas
+                .write_ppm(&mut output)
+                .map_err(|error| format!("failed to write PPM image: {error}"))
         }
     }
-
-    let stdout = io::stdout();
-    let mut output = BufWriter::new(stdout.lock());
-    canvas.write_ppm(&mut output)
 }

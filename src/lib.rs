@@ -2,4 +2,4 @@
 
 pub mod math;
 
-pub use math::{Color, Point3, Vec3};
+pub use math::{Color, Point3, Ray, Vec3};

@@ -33,6 +33,27 @@ cargo run --release -- [OPTIONS] > output.ppm
 The image is written to standard output as P3 PPM; redirect it to a file
 (`> image.ppm`) or pipe it into an image viewer/converter.
 
+## Audit checklist
+
+One command per thing worth verifying, in the order you'd typically
+check them:
+
+| Check | Command |
+| --- | --- |
+| Build the project | `cargo build --release` |
+| Run the full test suite | `cargo test` |
+| Formatting is clean | `cargo fmt --check` |
+| No lint warnings | `cargo clippy --all-targets -- -D warnings` |
+| The 4 required renders exist | `ls -la renders/*.ppm` |
+| View a render (macOS) | `sips -s format png renders/sphere.ppm --out /tmp/sphere.png && open /tmp/sphere.png` (or open the `.ppm` directly in Preview, which reads PPM natively) |
+| Render a sphere-only scene | see [`sphere`](#sphere--a-single-sphere) below |
+| Render a plane+cube scene at lower brightness | see [`dim`](#dim--a-plane-and-a-cube-at-lower-brightness) below |
+| Render all four object types together | see [`all`](#all--sphere-cube-plane-and-cylinder-together) below |
+| Render the same all-objects scene from a second camera | see [`all`](#all--sphere-cube-plane-and-cylinder-together) below, second command |
+| Reduce the output resolution | append `--width 100 --height 75` (or any size) to any command above |
+| Move the camera | change `--camera`/`--look-at` on any command above (see [Usage](#usage)) |
+| Construct a new element / change brightness in code | see [Constructing a scene](#constructing-a-scene) below |
+
 ## Constructing a scene
 
 Scenes are plain Rust, built with the same four constructors regardless
@@ -179,9 +200,16 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Unit tests cover vector/ray math, camera rays, PPM structure and
-clamping, closest-hit selection, CLI validation, and — per shape —
-misses, outside hits, inside hits, nearest valid distances, normals, and
-translated positions. Integration tests in `tests/` render every named
-scene at a small resolution and exercise the compiled binary end to end
-(help output, PPM structure, and error reporting).
+Unit tests live at the bottom of each source file, in a `#[cfg(test)]
+mod tests` block — for example `src/shapes/sphere.rs`, `src/shapes/plane.rs`,
+`src/shapes/cube.rs`, `src/shapes/cylinder.rs`, and `src/renderer.rs`.
+They cover vector/ray math, camera rays, PPM structure and clamping,
+closest-hit selection, CLI validation, and — per shape — misses, outside
+hits, inside hits, nearest valid distances, normals, and translated
+positions.
+
+Integration tests live in [`tests/`](tests/):
+[`tests/scene_presets.rs`](tests/scene_presets.rs) renders every named
+scene at a small resolution, and [`tests/cli.rs`](tests/cli.rs)
+exercises the compiled binary end to end (help output, PPM structure,
+and error reporting).

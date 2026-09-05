@@ -53,6 +53,11 @@ check them:
 | Reduce the output resolution | append `--width 100 --height 75` (or any size) to any command above |
 | Move the camera | change `--camera`/`--look-at` on any command above (see [Usage](#usage)) |
 | Construct a new element / change brightness in code | see [Constructing a scene](#constructing-a-scene) below |
+| Renders are valid, correctly-sized PPMs | `for f in renders/*.ppm; do echo "== $f =="; head -2 "$f"; done` (each should print `P3` then `800 600`) |
+| Lower brightness is a measurable difference, not just a visual impression | `cargo test dim_scene_is_darker_than_the_all_objects_scene_at_the_same_pixel -- --nocapture` |
+| CLI documents itself | `cargo run --release -- --help` |
+| Malformed camera coordinates are rejected | `cargo run --release -- --camera 0,0` |
+| A zero-sized image is rejected | `cargo run --release -- --width 0 --height 600` |
 
 ## Constructing a scene
 

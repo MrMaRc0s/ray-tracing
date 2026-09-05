@@ -5,6 +5,10 @@ fn camera_for(scene: &str, width: usize, height: usize) -> Camera {
         "sphere" => (Point3::new(0.0, 0.0, 4.0), Point3::new(0.0, 0.0, -1.0)),
         "dim" => (Point3::new(0.0, 2.0, 5.0), Point3::new(0.0, -0.7, -1.0)),
         "all" => (Point3::new(0.0, 3.0, 10.0), Point3::new(0.0, -0.5, -1.0)),
+        "textures" => (Point3::new(0.0, 1.0, 4.0), Point3::new(0.0, -0.3, -1.0)),
+        "glass" => (Point3::new(0.0, 1.0, 6.0), Point3::new(0.0, -0.2, -1.0)),
+        "particles" => (Point3::new(0.0, 1.0, 6.0), Point3::new(0.0, 0.2, -1.5)),
+        "fluid" => (Point3::new(0.0, 1.5, 6.0), Point3::new(0.0, -0.4, -1.5)),
         other => panic!("no camera fixture for scene '{other}'"),
     };
 

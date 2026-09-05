@@ -23,7 +23,7 @@ cargo run --release -- [OPTIONS] > output.ppm
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--scene <NAME>` | Scene to render: `preview`, `sphere`, `dim`, `all` | `preview` |
+| `--scene <NAME>` | Scene to render: `preview`, `sphere`, `dim`, `all`, `textures`, `glass`, `particles`, `fluid` | `preview` |
 | `--width <PIXELS>` | Image width | `800` |
 | `--height <PIXELS>` | Image height | `600` |
 | `--camera <X,Y,Z>` | Camera position | `0,0,2` |
@@ -58,6 +58,10 @@ check them:
 | CLI documents itself | `cargo run --release -- --help` |
 | Malformed camera coordinates are rejected | `cargo run --release -- --camera 0,0` |
 | A zero-sized image is rejected | `cargo run --release -- --width 0 --height 600` |
+| **Bonus:** textures on a surface | see [`textures`](#textures--procedural-checker-pattern) below |
+| **Bonus:** reflective and/or refractive objects | see [`glass`](#glass--mirror-and-refractive-spheres) below |
+| **Bonus:** particles | see [`particles`](#particles--a-scattered-particle-cloud) below |
+| **Bonus:** fluids | see [`fluid`](#fluid--a-rippled-reflectiverefractive-water-surface) below |
 
 ## Constructing a scene
 
@@ -100,11 +104,65 @@ Given a `scene`, a `Camera` (see [Usage](#usage) — `--camera`/`--look-at`
 control its position and target), and a `light`, `rt::render(&scene,
 &camera, &light)` returns the `Canvas` to write out as PPM.
 
-The three named presets in the table above (`sphere`, `dim`, `all`) are
-exactly this API used in [`src/scenes.rs`](src/scenes.rs) — open that
-file to see the full working example, or add a new `match` arm there to
-register a new named scene of your own; `cargo build` and `--scene
-<your-name>` picks it up immediately.
+The seven named presets in the table above (`sphere`, `dim`, `all`,
+`textures`, `glass`, `particles`, `fluid`) are exactly this API used in
+[`src/scenes.rs`](src/scenes.rs) — open that file to see the full working
+example, or add a new `match` arm there to register a new named scene of
+your own; `cargo build` and `--scene <your-name>` picks it up immediately.
+
+### Textures, reflection, and refraction
+
+A `Material` defaults to a flat color, fully opaque and non-reflective.
+Three builder methods opt into the bonus surface effects, and can be
+combined:
+
+```rust
+use rt::{Color, Material, Texture};
+
+// A procedural checker pattern, sampled from world-space coordinates —
+// no image decoder needed, so the ray tracer stays dependency-free.
+let checkered = Material::new(Color::new(0.9, 0.9, 0.9), 0.1, 0.9)
+    .with_texture(Texture::checker(Color::new(0.9, 0.9, 0.9), Color::new(0.1, 0.1, 0.15), 1.0));
+
+// A mirror: 90% of the shaded color comes from what the surface reflects.
+let mirror = Material::new(Color::new(0.9, 0.9, 0.9), 0.05, 0.1).with_reflectivity(0.9);
+
+// Glass: 95% transparent with a refractive index of 1.5 bends light passing through.
+let glass = Material::new(Color::new(1.0, 1.0, 1.0), 0.02, 0.05).with_transparency(0.95, 1.5);
+```
+
+Reflective and refractive rays are traced recursively (up to 5 bounces,
+see [`src/renderer.rs`](src/renderer.rs)), so mirrors can reflect other
+mirrors and glass objects, and total internal reflection is handled when
+a refracted ray's angle is too shallow to escape a denser medium.
+
+### Particles
+
+[`rt::scatter_particles`](src/particles.rs) adds many small spheres at
+random (but seed-reproducible) positions within a box, using a tiny
+built-in xorshift generator instead of an external `rand` crate:
+
+```rust
+use rt::{scatter_particles, Color, Point3, Scene};
+
+let mut scene = Scene::new(Color::new(0.02, 0.02, 0.05));
+scatter_particles(
+    &mut scene,
+    120,                                   // particle count
+    Point3::new(-2.5, -0.9, -3.0),         // box min corner
+    Point3::new(2.5, 2.0, 0.0),            // box max corner
+    0.07,                                  // particle radius
+    1234,                                  // seed — same seed, same scene
+    |i| Color::new(0.9, 0.6, 0.3),         // color per particle index
+);
+```
+
+### Fluids
+
+[`WavyPlane`](src/shapes/wavy_plane.rs) approximates a liquid surface: a
+perfectly flat intersection (so it's just as cheap to trace as `Plane`)
+combined with a sine-rippled shading normal, so a reflective/refractive
+material on it looks like rippling water rather than a static mirror.
 
 ## Scenes
 
@@ -158,6 +216,51 @@ cargo run --release -- --scene all --width 800 --height 600 \
   --camera 8,4,2 --look-at 0,-0.5,-1 > renders/all_objects_camera2.ppm
 ```
 
+## Bonus scenes
+
+### `textures` — procedural checker pattern
+
+A checkered floor (see [Textures, reflection, and refraction](#textures-reflection-and-refraction))
+under a plain sphere, so the same light shows a textured and an untextured
+surface side by side.
+
+```sh
+cargo run --release -- --scene textures --width 800 --height 600 \
+  --camera 0,1,4 --look-at 0,-0.3,-1 > renders/bonus/textures.ppm
+```
+
+### `glass` — mirror and refractive spheres
+
+A mirror-like sphere (90% reflective) and a glass sphere (95%
+transparent, refractive index 1.5) over a checkered floor, each bouncing
+rays recursively.
+
+```sh
+cargo run --release -- --scene glass --width 800 --height 600 \
+  --camera 0,1,6 --look-at 0,-0.2,-1 > renders/bonus/glass.ppm
+```
+
+### `particles` — a scattered particle cloud
+
+A floor plus 120 small spheres scattered at seed-reproducible random
+positions (see [Particles](#particles)), each casting its own shadow.
+
+```sh
+cargo run --release -- --scene particles --width 800 --height 600 \
+  --camera 0,1,6 --look-at 0,0.2,-1.5 > renders/bonus/particles.ppm
+```
+
+### `fluid` — a rippled, reflective/refractive water surface
+
+A [`WavyPlane`](#fluids) water surface over a checkered sea floor, with a
+sphere floating on top — the rippled shading normal distorts both the
+mirror reflection and the refracted view of the floor below.
+
+```sh
+cargo run --release -- --scene fluid --width 800 --height 600 \
+  --camera 0,0.8,4 --look-at 0,-0.6,-1.2 > renders/bonus/fluid.ppm
+```
+
 ## Required renders
 
 The four required 800x600 renders described above are committed under
@@ -170,6 +273,11 @@ The four required 800x600 renders described above are committed under
   second camera position
 
 Regenerate them at any time with the four commands above.
+
+The four bonus renders are committed under [`renders/bonus/`](renders/bonus/)
+— one per bonus feature (`textures.ppm`, `glass.ppm`, `particles.ppm`,
+`fluid.ppm`) — and regenerate with the four commands in
+[Bonus scenes](#bonus-scenes).
 
 ## Fast auditor verification
 
@@ -190,7 +298,7 @@ exit code, for example:
 
 ```sh
 cargo run --release -- --scene unknown
-# error: scene 'unknown' is not available; use one of: preview, sphere, dim, all
+# error: scene 'unknown' is not available; use one of: preview, sphere, dim, all, textures, glass, particles, fluid
 # try 'rt --help' for usage
 
 cargo run --release -- --camera 0,0,0 --look-at 0,0,0
@@ -207,11 +315,13 @@ cargo test
 
 Unit tests live at the bottom of each source file, in a `#[cfg(test)]
 mod tests` block — for example `src/shapes/sphere.rs`, `src/shapes/plane.rs`,
-`src/shapes/cube.rs`, `src/shapes/cylinder.rs`, and `src/renderer.rs`.
-They cover vector/ray math, camera rays, PPM structure and clamping,
-closest-hit selection, CLI validation, and — per shape — misses, outside
-hits, inside hits, nearest valid distances, normals, and translated
-positions.
+`src/shapes/cube.rs`, `src/shapes/cylinder.rs`, `src/shapes/wavy_plane.rs`,
+`src/texture.rs`, `src/particles.rs`, and `src/renderer.rs`.
+They cover vector/ray math (including `reflect`/`refract`), camera rays,
+PPM structure and clamping, closest-hit selection, CLI validation, and —
+per shape — misses, outside hits, inside hits, nearest valid distances,
+normals, and translated positions, plus reflective/transparent rendering,
+checker texture sampling, and seed-reproducible particle scattering.
 
 Integration tests live in [`tests/`](tests/):
 [`tests/scene_presets.rs`](tests/scene_presets.rs) renders every named

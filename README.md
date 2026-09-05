@@ -33,6 +33,53 @@ cargo run --release -- [OPTIONS] > output.ppm
 The image is written to standard output as P3 PPM; redirect it to a file
 (`> image.ppm`) or pipe it into an image viewer/converter.
 
+## Constructing a scene
+
+Scenes are plain Rust, built with the same four constructors regardless
+of which shape you're placing. Every shape takes a `Material` and
+implements the shared `Hittable` trait, so `Scene::add` accepts any of
+them interchangeably:
+
+```rust
+use rt::{Color, Cube, Cylinder, Material, Plane, Point3, PointLight, Scene, Sphere, Vec3};
+
+let mut scene = Scene::new(Color::new(0.02, 0.02, 0.05)); // background color
+
+// Sphere::new(center, radius, material)
+scene.add(Sphere::new(
+    Point3::new(0.0, 0.0, -1.0),
+    1.0,
+    Material::new(Color::new(0.9, 0.2, 0.2), /* ambient */ 0.1, /* diffuse */ 0.9),
+));
+
+// Plane::new(point_on_plane, normal, material) — infinite in both directions
+scene.add(Plane::new(
+    Point3::new(0.0, -1.0, 0.0),
+    Vec3::new(0.0, 1.0, 0.0),
+    Material::new(Color::new(0.7, 0.7, 0.7), 0.1, 0.7),
+));
+
+// Cube::new(center, half_size, material) — axis-aligned
+scene.add(Cube::new(Point3::new(0.0, -0.5, -1.0), 0.5, Material::default()));
+
+// Cylinder::new(base_center, radius, height, material) — vertical, base to base+height
+scene.add(Cylinder::new(Point3::new(3.0, -1.0, -1.5), 0.6, 1.4, Material::default()));
+
+// Light position, color, and brightness
+let mut light = PointLight::new(Point3::new(5.0, 5.0, 5.0), Color::new(1.0, 1.0, 1.0), 1.0);
+light.set_brightness(0.3); // change brightness at any time
+```
+
+Given a `scene`, a `Camera` (see [Usage](#usage) — `--camera`/`--look-at`
+control its position and target), and a `light`, `rt::render(&scene,
+&camera, &light)` returns the `Canvas` to write out as PPM.
+
+The three named presets in the table above (`sphere`, `dim`, `all`) are
+exactly this API used in [`src/scenes.rs`](src/scenes.rs) — open that
+file to see the full working example, or add a new `match` arm there to
+register a new named scene of your own; `cargo build` and `--scene
+<your-name>` picks it up immediately.
+
 ## Scenes
 
 ### `preview`

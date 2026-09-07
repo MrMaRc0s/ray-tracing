@@ -6,7 +6,7 @@ pub const HELP: &str = "\
 Usage: rt [OPTIONS]
 
 Options:
-  --scene <NAME>       Scene name (default: preview)
+  --scene <NAME>       Scene name: preview, sphere, dim, all (default: preview)
   --width <PIXELS>     Image width (default: 800)
   --height <PIXELS>    Image height (default: 600)
   --camera <X,Y,Z>     Camera position (default: 0,0,2)

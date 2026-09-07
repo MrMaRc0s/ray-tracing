@@ -28,7 +28,8 @@ impl PointLight {
     }
 
     pub fn shade(&self, hit: &HitRecord, in_shadow: bool) -> Color {
-        let ambient = hit.material.color * hit.material.ambient;
+        let surface_color = hit.material.surface_color(hit.point);
+        let ambient = surface_color * hit.material.ambient;
         if in_shadow {
             return ambient;
         }
@@ -36,7 +37,7 @@ impl PointLight {
         let direction_to_light = (self.position - hit.point).normalized();
         let light_angle = hit.normal.dot(direction_to_light).max(0.0);
         let diffuse_strength = hit.material.diffuse * self.brightness * light_angle;
-        ambient + hit.material.color * self.color * diffuse_strength
+        ambient + surface_color * self.color * diffuse_strength
     }
 }
 

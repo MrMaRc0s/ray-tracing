@@ -41,6 +41,31 @@ impl Vec3 {
         assert!(length > 0.0, "cannot normalize a zero-length vector");
         self / length
     }
+
+    /// Reflects `self` (an incoming direction) across a surface with the
+    /// given `normal`, as if bouncing off a mirror. Works whether `normal`
+    /// points toward or away from `self`.
+    pub fn reflect(self, normal: Self) -> Self {
+        self - normal * (2.0 * self.dot(normal))
+    }
+
+    /// Refracts `self` (a normalized incoming direction hitting a surface
+    /// whose normal opposes it, per [`crate::HitRecord`]'s convention)
+    /// through a boundary with refractive-index ratio `eta_ratio` (incident
+    /// side over transmitted side), per Snell's law. Returns `None` when the
+    /// angle is too shallow for the ray to cross the boundary at all (total
+    /// internal reflection), leaving the caller to reflect instead.
+    pub fn refract(self, normal: Self, eta_ratio: f64) -> Option<Self> {
+        let cos_theta = (-self).dot(normal).min(1.0);
+        let sin_theta_squared = (1.0 - cos_theta * cos_theta).max(0.0);
+        if eta_ratio * eta_ratio * sin_theta_squared > 1.0 {
+            return None;
+        }
+
+        let out_perpendicular = (self + normal * cos_theta) * eta_ratio;
+        let out_parallel = -normal * (1.0 - out_perpendicular.length_squared()).max(0.0).sqrt();
+        Some(out_perpendicular + out_parallel)
+    }
 }
 
 impl Add for Vec3 {
@@ -147,5 +172,50 @@ mod tests {
 
         assert_vec3_close(normalized, Vec3::new(0.6, 0.0, 0.8));
         assert!((normalized.length() - 1.0).abs() < EPSILON);
+    }
+
+    #[test]
+    fn reflects_a_ray_off_a_flat_surface_like_a_mirror() {
+        let incoming = Vec3::new(1.0, -1.0, 0.0).normalized();
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+
+        let reflected = incoming.reflect(normal);
+
+        assert_vec3_close(reflected, Vec3::new(1.0, 1.0, 0.0).normalized());
+    }
+
+    #[test]
+    fn refracts_straight_through_a_surface_hit_head_on() {
+        let incoming = Vec3::new(0.0, -1.0, 0.0);
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+
+        let refracted = incoming.refract(normal, 1.0 / 1.5).unwrap();
+
+        assert_vec3_close(refracted, Vec3::new(0.0, -1.0, 0.0));
+    }
+
+    #[test]
+    fn bends_a_ray_entering_a_denser_medium_at_an_angle() {
+        let incoming = Vec3::new(1.0, -1.0, 0.0).normalized();
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+
+        let refracted = incoming.refract(normal, 1.0 / 1.5).unwrap();
+
+        // Bending toward the normal in a denser medium narrows the angle, so
+        // the transmitted ray's x component shrinks relative to the incoming
+        // ray while it keeps travelling in the same downward half-space.
+        assert!(refracted.x.abs() < incoming.x.abs());
+        assert!(refracted.y < 0.0);
+        assert!((refracted.length() - 1.0).abs() < EPSILON);
+    }
+
+    #[test]
+    fn reports_total_internal_reflection_past_the_critical_angle() {
+        let grazing = Vec3::new(0.999, -0.05, 0.0).normalized();
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+
+        // Going from a denser medium (1.5) back out to air (1.0) at a steep
+        // angle exceeds the critical angle, so no refracted ray exists.
+        assert!(grazing.refract(normal, 1.5).is_none());
     }
 }

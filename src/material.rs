@@ -1,10 +1,22 @@
-use crate::Color;
+use crate::{Color, Texture};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Material {
     pub color: Color,
     pub ambient: f64,
     pub diffuse: f64,
+    pub texture: Texture,
+    /// Fraction of light that bounces off as a mirror reflection, `0.0` to
+    /// `1.0`. `0.0` (the default) means a fully matte surface.
+    pub reflectivity: f64,
+    /// Fraction of light that passes through the surface and refracts,
+    /// `0.0` to `1.0`. `0.0` (the default) means a fully opaque surface.
+    /// Reflectivity and transparency share the remaining local-shading
+    /// weight, so `reflectivity + transparency` should not exceed `1.0`.
+    pub transparency: f64,
+    /// Index of refraction used when `transparency > 0.0` (e.g. `1.5` for
+    /// glass, `1.33` for water). Ignored on an opaque surface.
+    pub refractive_index: f64,
 }
 
 impl Material {
@@ -13,7 +25,39 @@ impl Material {
             color,
             ambient,
             diffuse,
+            texture: Texture::Solid(color),
+            reflectivity: 0.0,
+            transparency: 0.0,
+            refractive_index: 1.0,
         }
+    }
+
+    /// Returns this material with `texture` applied in place of its solid
+    /// color for shading purposes.
+    pub const fn with_texture(mut self, texture: Texture) -> Self {
+        self.texture = texture;
+        self
+    }
+
+    /// Returns this material as a mirror-like reflector of the given
+    /// strength (`0.0` to `1.0`).
+    pub const fn with_reflectivity(mut self, reflectivity: f64) -> Self {
+        self.reflectivity = reflectivity;
+        self
+    }
+
+    /// Returns this material as a transparent, refractive dielectric of the
+    /// given strength (`0.0` to `1.0`) and refractive index.
+    pub const fn with_transparency(mut self, transparency: f64, refractive_index: f64) -> Self {
+        self.transparency = transparency;
+        self.refractive_index = refractive_index;
+        self
+    }
+
+    /// The color actually used for shading at `point`: the material's
+    /// texture if one was set, otherwise its plain `color`.
+    pub fn surface_color(&self, point: crate::Point3) -> Color {
+        self.texture.color_at(point)
     }
 }
 

@@ -46,6 +46,7 @@ check them:
 | No lint warnings | `cargo clippy --all-targets -- -D warnings` |
 | The 4 required renders exist | `ls -la renders/*.ppm` |
 | View a render (macOS) | `sips -s format png renders/sphere.ppm --out /tmp/sphere.png && open /tmp/sphere.png` (or open the `.ppm` directly in Preview, which reads PPM natively) |
+| View a render (linux)| `convert renders/sphere.ppm /tmp/sphere.png && xdg-open /tmp/sphere.png` |
 | Render a sphere-only scene | see [`sphere`](#sphere--a-single-sphere) below |
 | Render a plane+cube scene at lower brightness | see [`dim`](#dim--a-plane-and-a-cube-at-lower-brightness) below |
 | Render all four object types together | see [`all`](#all--sphere-cube-plane-and-cylinder-together) below |
